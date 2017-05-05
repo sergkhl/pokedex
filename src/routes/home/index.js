@@ -15,17 +15,20 @@ export default {
 
   path: '/',
 
-  async action({ fetch }) {
+  async action({fetch}) {
     const resp = await fetch('/graphql', {
       body: JSON.stringify({
-        query: '{news{title,link,content}}',
+        query: '{ pokemon{name,avatar,types{id,name,url}} }',
       }),
     });
-    const { data } = await resp.json();
-    if (!data || !data.news) throw new Error('Failed to load the news feed.');
+    const {data, errors} = await resp.json();
+    if (errors) {
+      throw new Error(JSON.stringify(errors));
+    }
+
     return {
-      title: 'React Starter Kit',
-      component: <Layout><Home news={data.news} /></Layout>,
+      title: 'Pokedex',
+      component: <Layout><Home news={data.news} pokemon={data.pokemon}/></Layout>,
     };
   },
 
