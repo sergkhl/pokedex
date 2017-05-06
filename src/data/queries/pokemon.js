@@ -1,18 +1,18 @@
-import { GraphQLList as List, GraphQLID as ID } from 'graphql';
+import { GraphQLList as List, GraphQLID as ID, GraphQLInt as Int } from 'graphql';
 import fetch from 'isomorphic-fetch';
-import Pokemon from '../types/PokemonType';
+import PokemonResourceList from '../types/PokemonType';
 
 // pokeapi.co
 
-const allPokemonUrl = 'http://pokeapi.co/api/v2/pokemon/?limit=5';
+const allPokemonUrl = 'http://pokeapi.co/api/v2/pokemon/';
 const pokemonByTypeUrl = 'http://pokeapi.co/api/v2/type/';
 
-let items = [];
+let resultData = {};
 let lastFetchTask;
 let lastFetchTime = new Date(1970, 0, 1);
 
-const getAllPokemon = () => {
-  return fetch(allPokemonUrl)
+const getAllPokemon = (limit, offset) => {
+  return fetch(allPokemonUrl + '?limit=' + limit + '&offset=' + offset)
     .then(response => response.json())
     .then((data) => {
       return new Promise((resolve, reject) => {
@@ -26,13 +26,16 @@ const getAllPokemon = () => {
           promises.push(fetch(result.url).then(response => response.json()));
         });
 
-        Promise.all(promises).then(resolve, reject);
+        Promise.all(promises).then((results) => {
+          let result = Object.assign({limit, offset}, data, {results});
+          resolve(result);
+        }, reject);
       });
     })
 
 };
 
-const getPokemonByType = (typeId) => {
+const getPokemonByType = (typeId, limit, offset) => {
   return fetch(pokemonByTypeUrl + typeId)
     .then(response => response.json())
     .then((data) => {
@@ -44,19 +47,33 @@ const getPokemonByType = (typeId) => {
         lastFetchTask = null;
 
         let promises = [];
-        data.pokemon.slice(0,5).forEach((result) => {
+        data.pokemon.slice(offset, offset + limit).forEach((result) => {
           promises.push(fetch(result.pokemon.url).then(response => response.json()));
         });
 
-        Promise.all(promises).then(resolve, reject);
+        Promise.all(promises).then((results) => {
+          let result = {
+            limit,
+            offset,
+            count: data.pokemon.length,
+            typeName: data.name,
+            typeId,
+            previous: '',
+            next: '',
+            results
+          };
+          resolve(result);
+        }, reject);
       });
     });
 };
 
 const pokemon = {
-  type: new List(Pokemon),
+  type: PokemonResourceList,
   args: {
-    typeId: { type: ID }
+    typeId: { type: ID },
+    limit: { type: Int },
+    offset: { type: Int }
   },
   resolve(root, args) {
     if (lastFetchTask) {
@@ -65,27 +82,23 @@ const pokemon = {
 
     if ((new Date() - lastFetchTime) > 1000) {
 
-      let req = args.typeId ? getPokemonByType(args.typeId) : getAllPokemon();
+      let req = args.typeId ? getPokemonByType(args.typeId, args.limit, args.offset) : getAllPokemon(args.limit, args.offset);
 
       lastFetchTime = new Date();
       lastFetchTask = req
         .then((data) => {
-          items = data;
-          return items;
+          resultData = data;
+          return resultData;
         })
         .catch((err) => {
           lastFetchTask = null;
           throw err;
         });
 
-      if (items.length) {
-        return items;
-      }
-
       return lastFetchTask;
     }
 
-    return items;
+    return resultData;
   },
 };
 

@@ -1,15 +1,15 @@
 import React from 'react';
-import Type from './Type';
 import Layout from '../../components/Layout';
+import PokemonList from '../../components/PokemonList';
 
 export default {
 
   path: '/type/:id',
 
-  async action({fetch, params}) {
+  async action({fetch, params, query}) {
     const resp = await fetch('/graphql', {
       body: JSON.stringify({
-        query: `{ pokemon(typeId: ${params.id}){name,avatar,types{id,name}} }`,
+        query: `{ pokemon(typeId: ${params.id}, limit: ${query.limit || 10}, offset: ${query.offset || 0}){limit,offset,count,typeId,typeName,next,previous,results{name,avatar,types{id,name,url}}} }`,
       }),
     });
     const {data, errors} = await resp.json();
@@ -17,8 +17,8 @@ export default {
       throw new Error(JSON.stringify(errors));
     }
     return {
-      title: 'Pokemons',
-      component: <Layout><Type pokemon={data.pokemon} id={params.id}/></Layout>,
+      title: 'Pokedex',
+      component: <Layout><PokemonList pokemon={data.pokemon}/></Layout>,
     };
   },
 

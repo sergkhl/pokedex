@@ -8,17 +8,17 @@
  */
 
 import React from 'react';
-import Home from './Home';
+import PokemonList from '../../components/PokemonList';
 import Layout from '../../components/Layout';
 
 export default {
 
   path: '/',
 
-  async action({fetch}) {
+  async action({fetch, params, query}) {
     const resp = await fetch('/graphql', {
       body: JSON.stringify({
-        query: '{ pokemon{name,avatar,types{id,name,url}} }',
+        query: `{ pokemon(limit: ${query.limit || 10}, offset: ${query.offset || 0}){ limit,offset,count,next,previous,results{name,avatar,types{id,name,url}} } }`,
       }),
     });
     const {data, errors} = await resp.json();
@@ -28,7 +28,7 @@ export default {
 
     return {
       title: 'Pokedex',
-      component: <Layout><Home news={data.news} pokemon={data.pokemon}/></Layout>,
+      component: <Layout><PokemonList pokemon={data.pokemon}/></Layout>,
     };
   },
 
